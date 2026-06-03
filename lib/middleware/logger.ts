@@ -26,6 +26,16 @@ const colorStatus = (status: number) => {
     return out[calculateStatus];
 };
 
+const getCacheLogSuffix = (headers: Headers) => {
+    const cacheStatus = headers.get('RSSHub-Cache-Status');
+    if (!cacheStatus) {
+        return '';
+    }
+
+    const smoothRefreshAfter = headers.get('RSSHub-Cache-Smooth-Refresh-After');
+    return smoothRefreshAfter ? ` cache=${cacheStatus} smooth=${smoothRefreshAfter}s` : ` cache=${cacheStatus}`;
+};
+
 const middleware: MiddlewareHandler = async (ctx, next) => {
     const { method, raw, routePath } = ctx.req;
     const path = getPath(raw);
@@ -37,8 +47,9 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
     await next();
 
     const status = ctx.res.status;
+    const cacheLogSuffix = getCacheLogSuffix(ctx.res.headers);
 
-    logger.info(`${LogPrefix.Outgoing} ${method} ${path} ${colorStatus(status)} ${time(start)}`);
+    logger.info(`${LogPrefix.Outgoing} ${method} ${path} ${colorStatus(status)} ${time(start)}${cacheLogSuffix}`);
     requestMetric.success(Date.now() - start, { path: routePath, method, status });
 };
 

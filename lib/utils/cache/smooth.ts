@@ -90,6 +90,7 @@ export const scheduleSmoothRefresh = async (cacheHash: string, requestUrl: strin
     }, delaySeconds * 1000);
     timer.unref?.();
     scheduledRefreshes.set(cacheHash, timer);
+    logger.info(`Smooth cache refresh scheduled for ${getSafeLogPath(requestUrl)} in ${delaySeconds}s`);
 
     return true;
 };
