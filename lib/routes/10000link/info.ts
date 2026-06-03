@@ -22,9 +22,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const $: CheerioAPI = load(response);
     const language = $('html').attr('lang') ?? 'zh';
 
-    let items: DataItem[] = [];
-
-    items = $('ul.l_newshot li dl.lhotnew2')
+    let items: DataItem[] = $('ul.l_newshot li dl.lhotnew2')
         .slice(0, limit)
         .toArray()
         .map((el): Element => {
@@ -216,8 +214,7 @@ export const route: Route = {
 
 | 政策          | 规划          | 案例           | 职场         | 供应链票据 |
 | ------------- | ------------- | -------------- | ------------ | ---------- |
-| newslists/A03 | newslists/A04 | newslists/GL03 | newslists/ZC | newsBill   |
-`,
+| newslists/A03 | newslists/A04 | newslists/GL03 | newslists/ZC | newsBill   |`,
     categories: ['new-media'],
     features: {
         requireConfig: false,

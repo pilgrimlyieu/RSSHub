@@ -22,9 +22,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const $: CheerioAPI = load(response);
     const language = $('html').attr('lang') ?? 'en';
 
-    let items: DataItem[] = [];
-
-    items = $('table#home-table tr:not(.gore)')
+    let items: DataItem[] = $('table#home-table tr:not(.gore)')
         .slice(0, limit)
         .toArray()
         .map((el): Element => {
@@ -136,10 +134,9 @@ export const route: Route = {
             description: 'Filter',
         },
     },
-    description: `:::tip
+    description: `::: tip
 To subscribe to [Movie HD 1080p](https://0xxx.ws?category=Movie-HD-1080p), where the source URL is \`https://0xxx.ws?category=Movie-HD-1080p\`, extract the certain parts from this URL to be used as parameters, resulting in the route as [\`/0xxx/category=Movie-HD-1080p\`](https://rsshub.app/0xxx/category=Movie-HD-1080p).
-:::
-`,
+:::`,
     categories: ['multimedia'],
     features: {
         requireConfig: false,

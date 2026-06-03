@@ -20,9 +20,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const $: CheerioAPI = load(response);
     const language = $('html').attr('lang') ?? 'en';
 
-    let items: DataItem[] = [];
-
-    items = $('div.main h3 a')
+    let items: DataItem[] = $('div.main h3 a')
         .slice(0, limit)
         .toArray()
         .map((el): Element => {
@@ -187,8 +185,7 @@ To subscribe to [Daily News](https://www.expats.cz/czech-news/daily-news), where
 | [Economy](https://www.expats.cz/czech-news/economy)           | [economy](https://rsshub.app/expats/czech-news/economy)               |
 | [Language](https://www.expats.cz/czech-news/language)         | [language](https://rsshub.app/expats/czech-news/language)             |
 
-</details>
-`,
+</details>`,
     categories: ['new-media'],
     features: {
         requireConfig: false,

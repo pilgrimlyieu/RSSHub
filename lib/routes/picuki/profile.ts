@@ -6,7 +6,7 @@ import { renderUserEmbed } from '@/routes/tiktok/templates/user';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { getPuppeteerPage } from '@/utils/puppeteer';
+import { getPlaywrightPage } from '@/utils/playwright';
 
 export const route: Route = {
     path: '/profile/:id/:type?/:functionalFlag?',
@@ -85,7 +85,7 @@ async function handler(ctx) {
             });
         } catch (error) {
             if (error.status === 403) {
-                const { page, destory } = await getPuppeteerPage(profileUrl, {
+                const { page, destroy } = await getPlaywrightPage(profileUrl, {
                     onBeforeLoad: async (page) => {
                         const expectResourceTypes = new Set(['document', 'script', 'xhr', 'fetch']);
                         await page.setRequestInterception(true);
@@ -96,7 +96,7 @@ async function handler(ctx) {
                 });
                 await page.waitForSelector('.content');
                 response = await page.content();
-                await destory();
+                await destroy();
             } else {
                 throw new NotFoundError(error.message);
             }
@@ -113,7 +113,7 @@ async function handler(ctx) {
 
         const username = $('.profile-info .username').text().trim();
 
-        const items = $('.posts-video .posts__video-item')
+        const items = $('.posts-video .posts__video-item .posts__video-item-a')
             .toArray()
             .map((item) => {
                 const $item = $(item);
@@ -124,7 +124,7 @@ async function handler(ctx) {
                     author: username,
                     renderData: {
                         poster: img.attr('src'),
-                        source: $item.find('.popup-open').data('source'),
+                        source: `${baseUrl}/player/${videoId}`,
                         id: videoId,
                     },
                     link: `${baseUrl}/media/${videoId}`,

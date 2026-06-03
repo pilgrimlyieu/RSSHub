@@ -31,9 +31,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const $target: CheerioAPI = load(targetResponse);
     const language = $target('html').attr('lang') ?? 'zh-CN';
 
-    let items: DataItem[] = [];
-
-    items = $('div.event-item')
+    let items: DataItem[] = $('div.event-item')
         .slice(0, limit)
         .toArray()
         .map((el): Element => {
@@ -205,8 +203,7 @@ export const route: Route = {
 
 | 强力推荐  | 最新活动 |
 | --------- | -------- |
-| recommend | latest   |
-`,
+| recommend | latest   |`,
     categories: ['programming'],
     features: {
         requireConfig: false,

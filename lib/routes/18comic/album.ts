@@ -24,11 +24,11 @@ export const route: Route = {
         },
     ],
     name: '专辑',
-    maintainers: ['nczitzk'],
+    maintainers: ['nczitzk', 'pseudoyu'],
     handler,
     url: 'jmcomic.group/',
     description: `::: tip
-  专辑 id 不包括 URL 中标题的部分。
+专辑 id 不包括 URL 中标题的部分。
 :::`,
 };
 
@@ -72,7 +72,7 @@ async function handler(ctx) {
                     const chapterResult = await processApiItems(chapterApiUrl);
                     const result = {};
                     const chapterNum = index + 1;
-                    result.title = `第${String(chapterNum)}話 ${item.name === '' ? `${String(chapterNum)}` : item.name}`;
+                    result.title = `第${chapterNum}話 ${item.name === '' ? chapterNum : item.name}`;
                     result.link = `${rootUrl}/photo/${item.id}`;
                     result.guid = `${rootUrl}/photo/${item.id}`;
                     result.updated = new Date(chapterResult.addtime * 1000);

@@ -22,9 +22,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const $: CheerioAPI = load(response);
     const language = $('html').attr('lang') ?? 'zh';
 
-    let items: DataItem[] = [];
-
-    items = $('ul.huodong-list li')
+    let items: DataItem[] = $('ul.huodong-list li')
         .slice(0, limit)
         .toArray()
         .map((el): Element => {
@@ -150,8 +148,7 @@ export const route: Route = {
 | 分类                                   | ID                                  |
 | -------------------------------------- | ----------------------------------- |
 | [新闻动态](http://www.ccg.org.cn/news) | [news](https://rsshub.app/ccg/news) |
-| [媒体报道](http://www.ccg.org.cn/mtbd) | [mtbd](https://rsshub.app/ccg/mtbd) |
-`,
+| [媒体报道](http://www.ccg.org.cn/mtbd) | [mtbd](https://rsshub.app/ccg/mtbd) |`,
     categories: ['new-media'],
     features: {
         requireConfig: false,

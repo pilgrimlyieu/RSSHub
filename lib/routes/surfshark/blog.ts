@@ -31,9 +31,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const $: CheerioAPI = load(response);
     const language = $('html').attr('lang') ?? 'en';
 
-    let items: DataItem[] = [];
-
-    items = $('div.dg-article-single-card')
+    let items: DataItem[] = $('div.dg-article-single-card')
         .slice(0, limit)
         .toArray()
         .map((el): Element => {
@@ -236,8 +234,7 @@ To subscribe to [Cybersecurity](https://surfshark.com/blog/cybersecurity), where
 | [Video](https://surfshark.com/blog/video)                             | [video](https://rsshub.app/surfshark/blog/video)                             |
 | [News](https://surfshark.com/blog/news)                               | [news](https://rsshub.app/surfshark/blog/news)                               |
 
-</details>
-`,
+</details>`,
     categories: ['new-media'],
     features: {
         requireConfig: false,

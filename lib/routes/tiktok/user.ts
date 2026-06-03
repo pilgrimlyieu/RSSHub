@@ -4,7 +4,7 @@ import { config } from '@/config';
 import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import { parseDate } from '@/utils/parse-date';
-import puppeteer from '@/utils/puppeteer';
+import playwright from '@/utils/playwright';
 import { queryToBoolean } from '@/utils/readable-social';
 
 import { renderUserEmbed } from './templates/user';
@@ -27,7 +27,7 @@ export const route: Route = {
     },
     radar: [
         {
-            source: ['tiktok.com/:user'],
+            source: ['www.tiktok.com/:user'],
             target: '/user/:user',
         },
     ],
@@ -43,7 +43,7 @@ async function handler(ctx) {
     const data = await cache.tryGet(
         `tiktok:user:${user}`,
         async () => {
-            const browser = await puppeteer();
+            const browser = await playwright();
             const page = await browser.newPage();
             await page.setRequestInterception(true);
             let itemList = { itemList: [] };

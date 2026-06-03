@@ -31,9 +31,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
         },
     });
 
-    let items: DataItem[] = [];
-
-    items = response.data.slice(0, limit).map((item): DataItem => {
+    let items: DataItem[] = response.data.slice(0, limit).map((item): DataItem => {
         const title: string = item.title;
         const description: string = renderToString(item.zhaiyao ? <blockquote>{item.zhaiyao}</blockquote> : null);
         const pubDate: number | string = item.createtime;
@@ -179,8 +177,7 @@ export const route: Route = {
 
 | [数据研究](https://www.fangchan.com/datalist)         | [行业测评](https://www.fangchan.com/industrylist)             | [政策法规](https://www.fangchan.com/policylist)           |
 | ----------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------- |
-| [datalist](https://rsshub.app/fangchan/list/datalist) | [industrylist](https://rsshub.app/fangchan/list/industrylist) | [policylist](https://rsshub.app/fangchan/list/policylist) |
-`,
+| [datalist](https://rsshub.app/fangchan/list/datalist) | [industrylist](https://rsshub.app/fangchan/list/industrylist) | [policylist](https://rsshub.app/fangchan/list/policylist) |`,
     categories: ['new-media'],
     features: {
         requireConfig: false,

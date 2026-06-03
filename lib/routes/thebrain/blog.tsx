@@ -21,9 +21,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const $: CheerioAPI = load(response);
     const language = $('html').attr('lang') ?? 'en';
 
-    let items: DataItem[] = [];
-
-    items = $('div.blog-row')
+    let items: DataItem[] = $('div.blog-row')
         .slice(0, limit)
         .toArray()
         .map((el): Element => {
@@ -79,7 +77,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
                 $$('h2.gradient-heading').remove();
                 $$('div#shareDiv').remove();
 
-                const description: string | undefined = $$('div.blog-content').html() || $$('div.docs-section').html() || undefined;
+                const description: string | undefined = $$('div.blog-content').html() || $$('div.docs-section').html();
                 const pubDateStr: string | undefined = $$('div.blog-meta').text();
                 const categoryEls: Element[] = $$('a.under-category').toArray();
                 const categories: string[] = [...new Set(categoryEls.map((el) => $$(el).text()).filter(Boolean))];

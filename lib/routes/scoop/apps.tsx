@@ -92,9 +92,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
         },
     });
 
-    let items: DataItem[] = [];
-
-    items = response.value.slice(0, limit).map((item): DataItem => {
+    const items: DataItem[] = response.value.slice(0, limit).map((item): DataItem => {
         const repositorySplits: string[] = item.Metadata.Repository.split(/\//);
         const repositoryName: string = repositorySplits.slice(-2).join('/');
         const title = `${item.Name} ${item.Version} in ${repositoryName}`;
@@ -224,7 +222,7 @@ export const route: Route = {
         },
     },
     description: `::: tip
-To subscribe to [Apps](https://scoop.sh/#/apps?s=2&d=1&n=true&dm=true&o=true), where the source URL is \`https://scoop.sh/#/apps?s=2&d=1&n=true&dm=true&o=true\`, extract the certain parts from this URL to be used as parameters, resulting in the route as [\`/scoop/apps/s=2&d=1&n=true&dm=true&o=true\`](https://rsshub.app/scoop/apps/s=2&d=1&n=true&dm=true&o=true).
+To subscribe to [Apps](https://scoop.sh/#/apps?s=2\\&d=1\\&n=true\\&dm=true\\&o=true), where the source URL is \`https://scoop.sh/#/apps?s=2&d=1&n=true&dm=true&o=true\`, extract the certain parts from this URL to be used as parameters, resulting in the route as [\`/scoop/apps/s=2&d=1&n=true&dm=true&o=true\`](https://rsshub.app/scoop/apps/s=2\\&d=1\\&n=true\\&dm=true\\&o=true).
 :::`,
     categories: ['program-update'],
     features: {

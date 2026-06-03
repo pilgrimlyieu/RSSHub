@@ -23,9 +23,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const $: CheerioAPI = load(response);
     const language = $('html').attr('lang') ?? 'zh';
 
-    let items: DataItem[] = [];
-
-    items = $('div.bty_tbtj_list ul.clearFix li')
+    let items: DataItem[] = $('div.bty_tbtj_list ul.clearFix li')
         .slice(0, limit)
         .toArray()
         .map((el): Element => {
@@ -186,9 +184,7 @@ export const route: Route = {
 | [评论](http://www.banyuetan.org/byt/banyuetanpinglun/index.html)     | [banyuetanpinglun](https://rsshub.app/banyuetan/banyuetanpinglun) |
 | [基层治理](http://www.banyuetan.org/byt/jicengzhili/index.html)      | [jicengzhili](https://rsshub.app/banyuetan/jicengzhili)           |
 | [文化](http://www.banyuetan.org/byt/wenhua/index.html)               | [wenhua](https://rsshub.app/banyuetan/wenhua)                     |
-| [教育](http://www.banyuetan.org/byt/jiaoyu/index.html)               | [jiaoyu](https://rsshub.app/banyuetan/jiaoyu)                     |
-
-`,
+| [教育](http://www.banyuetan.org/byt/jiaoyu/index.html)               | [jiaoyu](https://rsshub.app/banyuetan/jiaoyu)                     |`,
     categories: ['traditional-media'],
     features: {
         requireConfig: false,

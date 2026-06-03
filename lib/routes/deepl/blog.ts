@@ -22,9 +22,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const $: CheerioAPI = load(response);
     const language = $('html').attr('lang') ?? lang;
 
-    let items: DataItem[] = [];
-
-    items = $('h4, h6')
+    let items: DataItem[] = $('h4, h6')
         .slice(0, limit)
         .toArray()
         .map((el): Element => {
@@ -254,8 +252,7 @@ To subscribe to [Blog](https://www.deepl.com/en/blog), where the source URL is \
 | [Українська](https://www.deepl.com/uk/blog)            | [uk](https://rsshub.app/deepl/blog/uk)       |
 | [العربية](https://www.deepl.com/ar/blog)               | [ar](https://rsshub.app/deepl/blog/ar)       |
 
-</details>
-`,
+</details>`,
     categories: ['new-media'],
     features: {
         requireConfig: false,
@@ -416,7 +413,6 @@ To subscribe to [Blog](https://www.deepl.com/en/blog), where the source URL is \
 | [Українська](https://www.deepl.com/uk/blog)            | [uk](https://rsshub.app/deepl/blog/uk)       |
 | [العربية](https://www.deepl.com/ar/blog)               | [ar](https://rsshub.app/deepl/blog/ar)       |
 
-</details>
-`,
+</details>`,
     },
 };

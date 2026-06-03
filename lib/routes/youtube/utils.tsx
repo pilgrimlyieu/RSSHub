@@ -68,7 +68,16 @@ export const renderDescription = (embed, videoId, img, description) =>
     renderToString(
         <>
             {embed ? (
-                <iframe id="ytplayer" type="text/html" width="640" height="360" src={`https://www.youtube-nocookie.com/embed/${videoId}`} frameborder="0" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" />
+                <iframe
+                    id="ytplayer"
+                    type="text/html"
+                    width="640"
+                    height="360"
+                    src={(config.youtube?.videoEmbedUrl || 'https://www.youtube-nocookie.com/embed/') + videoId}
+                    frameborder="0"
+                    allowfullscreen
+                    referrerpolicy="strict-origin-when-cross-origin"
+                />
             ) : (
                 <img src={img?.url ?? ''} />
             )}
@@ -109,17 +118,22 @@ export async function getSubscriptionsRecusive(part, nextPageToken?) {
 // taken from https://webapps.stackexchange.com/a/101153
 export const isYouTubeChannelId = (id) => /^UC[\w-]{21}[AQgw]$/.test(id);
 export const getLive = (id, cache) =>
-    cache.tryGet(`youtube:getLive:${id}`, async () => {
-        const res = await exec((youtube) =>
-            youtube.search.list({
-                part: 'snippet',
-                channelId: id,
-                eventType: 'live',
-                type: 'video',
-            })
-        );
-        return res;
-    });
+    cache.tryGet(
+        `youtube:getLive:${id}`,
+        async () => {
+            const res = await exec((youtube) =>
+                youtube.search.list({
+                    part: 'snippet',
+                    channelId: id,
+                    eventType: 'live',
+                    type: 'video',
+                })
+            );
+            return res;
+        },
+        config.cache.routeExpire,
+        false
+    );
 export const getVideoUrl = (id: string) => `https://www.youtube-nocookie.com/embed/${id}?controls=1&autoplay=1&mute=0`;
 
 // Get the appropriate playlist ID with or without shorts

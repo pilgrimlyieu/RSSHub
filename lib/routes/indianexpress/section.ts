@@ -40,9 +40,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const $: CheerioAPI = load(targetResponse);
     const language = $('html').attr('lang') ?? 'en';
 
-    let items: DataItem[] = [];
-
-    items = response.slice(0, limit).map((item): DataItem => {
+    const items: DataItem[] = response.slice(0, limit).map((item): DataItem => {
         const title: string = item.title?.rendered ?? item.title;
         const description: string | undefined = item.content.rendered;
         const pubDate: number | string = item.date_gmt;
@@ -101,10 +99,9 @@ export const route: Route = {
             description: 'Section ID, `trending` as Trending by default',
         },
     },
-    description: `:::tip
+    description: `::: tip
 To subscribe to [Section](https://indianexpress.com/), where the source URL is \`https://indianexpress.com/\`, extract the certain parts from this URL to be used as parameters, resulting in the route as [\`/indianexpress/section/explained\`](https://rsshub.app/indianexpress/section/explained).
-:::
-`,
+:::`,
     categories: ['new-media'],
     features: {
         requireConfig: false,

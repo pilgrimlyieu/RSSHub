@@ -20,11 +20,9 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const $: CheerioAPI = load(response);
     const language = $('html').attr('lang') ?? 'zh-CN';
 
-    let items: DataItem[] = [];
-
     const regex = /\{url:'(.*)',title:'(.*)',time:'(.*)'\},/g;
 
-    items =
+    let items: DataItem[] =
         response
             .match(regex)
             ?.slice(0, limit)
@@ -154,8 +152,8 @@ export const route: Route = {
 | [党群动态](https://www.cccmc.org.cn/shdj/dqdt/) | [党内法规](https://www.cccmc.org.cn/shdj/dnfg/) | [青年工作](https://www.cccmc.org.cn/shdj/qngz/) |
 | ----------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
 | [shdj/dqdt](https://rsshub.app/cccmc/shdj/dqdt) | [shdj/dnfg](https://rsshub.app/cccmc/shdj/dnfg) | [shdj/qngz](https://rsshub.app/cccmc/shdj/qngz) |
-</details>
-`,
+
+</details>`,
     categories: ['new-media'],
     features: {
         requireConfig: false,
