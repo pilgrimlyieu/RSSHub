@@ -259,6 +259,57 @@ describe('cache', () => {
         }
     }, 10000);
 
+    it('smooth cache marker remains safe when smooth config changes', async () => {
+        process.env.CACHE_TYPE = 'memory';
+        process.env.CACHE_EXPIRE = '3';
+        process.env.CACHE_CONTENT_EXPIRE = '3';
+        process.env.CACHE_SMOOTH = '1';
+        process.env.CACHE_SMOOTH_PERIOD = '60';
+        process.env.CACHE_SMOOTH_STALE_EXPIRE = '1';
+        process.env.CACHE_SMOOTH_REFRESH_BASE_URL = 'http://127.0.0.1:9';
+        process.env.REQUEST_TIMEOUT = '100';
+
+        try {
+            const app = (await import('@/app')).default;
+            const { config } = await import('@/config');
+
+            const response1 = await app.request('/test/cache');
+            const parsed1 = await parser.parseString(await response1.text());
+
+            const cacheModule = (await import('@/utils/cache/index')).default;
+            const { h64ToString } = await xxhash();
+            const cacheHash = h64ToString('/test/cache:rss');
+            expect(await cacheModule.globalCache.get(`rsshub:koa-redis-cache:${cacheHash}`)).toBe('rsshub:smooth:fresh');
+            expect(await cacheModule.globalCache.get(`rsshub:koa-redis-cache-stale:${cacheHash}`)).toContain('Cache1');
+
+            config.cache.smooth.enabled = false;
+
+            const disabledHitResponse = await app.request('/test/cache');
+            const parsedDisabledHit = await parser.parseString(await disabledHitResponse.text());
+            expect(disabledHitResponse.headers.get('rsshub-cache-status')).toBe('HIT');
+            expect(disabledHitResponse.headers.get('rsshub-cache-smooth-refresh-after')).toBeNull();
+
+            config.cache.smooth.enabled = true;
+            await wait(1 * 1000 + 500);
+
+            const ttlHitResponse = await app.request('/test/cache');
+            const parsedTtlHit = await parser.parseString(await ttlHitResponse.text());
+            expect(ttlHitResponse.headers.get('rsshub-cache-status')).toBe('HIT');
+
+            expect(parsed1.items[0].content).toBe('Cache1');
+            expect(parsedDisabledHit.items[0].content).toBe('Cache1');
+            expect(parsedTtlHit.items[0].content).toBe('Cache1');
+        } finally {
+            delete process.env.CACHE_SMOOTH;
+            delete process.env.CACHE_SMOOTH_PERIOD;
+            delete process.env.CACHE_SMOOTH_STALE_EXPIRE;
+            delete process.env.CACHE_SMOOTH_REFRESH_BASE_URL;
+            delete process.env.REQUEST_TIMEOUT;
+            process.env.CACHE_EXPIRE = '1';
+            process.env.CACHE_CONTENT_EXPIRE = '2';
+        }
+    }, 10000);
+
     it('throws URL key', async () => {
         process.env.CACHE_TYPE = 'memory';
         const app = (await import('@/app')).default;

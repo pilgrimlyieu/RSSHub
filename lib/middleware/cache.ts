@@ -64,7 +64,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
     }
 
     const value = forceSmoothRefresh ? undefined : await cacheModule.globalCache.get(key);
-    const cachedValue = smoothEnabled && value === smoothFreshCacheMarker ? await cacheModule.globalCache.get(staleKey) : value;
+    const cachedValue = value === smoothFreshCacheMarker ? await cacheModule.globalCache.get(staleKey) : value;
 
     if (cachedValue) {
         if (smoothEnabled && !forceSmoothRefresh) {
@@ -120,7 +120,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
         ctx.set('data', data);
         const body = JSON.stringify(data);
         if (smoothEnabled) {
-            await cacheModule.globalCache.set(staleKey, body, config.cache.smooth.staleExpire);
+            await cacheModule.globalCache.set(staleKey, body, Math.max(config.cache.smooth.staleExpire, config.cache.routeExpire));
             await cacheModule.globalCache.set(key, smoothFreshCacheMarker, config.cache.routeExpire);
         } else {
             await cacheModule.globalCache.set(key, body, config.cache.routeExpire);
