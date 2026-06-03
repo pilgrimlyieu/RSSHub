@@ -12,9 +12,9 @@ const smoothFreshCacheMarker = 'rsshub:smooth:fresh';
 
 const { h64ToString } = await xxhash();
 
-const getCachedValue = async (key: string, staleKey: string, smoothEnabled: boolean) => {
+const getCachedValue = async (key: string, staleKey: string) => {
     const value = await cacheModule.globalCache.get(key);
-    return smoothEnabled && value === smoothFreshCacheMarker ? await cacheModule.globalCache.get(staleKey) : value;
+    return value === smoothFreshCacheMarker ? await cacheModule.globalCache.get(staleKey) : value;
 };
 
 // only give cache string, as the `!` condition tricky
@@ -37,7 +37,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
     const smoothEnabled = shouldSmoothPath(requestPath);
     const forceSmoothRefresh = smoothEnabled && isSmoothRefreshRequest(ctx.req.header(smoothRefreshHeader));
 
-    let value = forceSmoothRefresh ? undefined : await getCachedValue(key, staleKey, smoothEnabled);
+    let value = forceSmoothRefresh ? undefined : await getCachedValue(key, staleKey);
 
     if (smoothEnabled && !forceSmoothRefresh) {
         const isRefreshing = cacheModule.globalCache.supportsAtomicClaims && (await cacheModule.globalCache.get(controlKey)) === '1';
@@ -84,7 +84,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
         if (!bypass) {
             throw new RequestInProgressError('This path is currently fetching, please come back later!');
         }
-        value = forceSmoothRefresh ? undefined : await getCachedValue(key, staleKey, smoothEnabled);
+        value = forceSmoothRefresh ? undefined : await getCachedValue(key, staleKey);
     }
 
     if (value) {
@@ -128,7 +128,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
             ctx.set('data', data);
             const body = JSON.stringify(data);
             if (smoothEnabled) {
-                await cacheModule.globalCache.set(staleKey, body, config.cache.smooth.staleExpire);
+                await cacheModule.globalCache.set(staleKey, body, Math.max(config.cache.smooth.staleExpire, config.cache.routeExpire));
                 await cacheModule.globalCache.set(key, smoothFreshCacheMarker, config.cache.routeExpire);
             } else {
                 await cacheModule.globalCache.set(key, body, config.cache.routeExpire);
