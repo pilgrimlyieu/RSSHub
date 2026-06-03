@@ -8,8 +8,15 @@ import cacheModule from '@/utils/cache/index';
 import { getSmoothDelaySeconds, isSmoothRefreshRequest, scheduleSmoothRefresh, shouldSmoothPath, smoothRefreshHeader } from '@/utils/cache/smooth';
 
 const bypassList = new Set(['/', '/robots.txt', '/logo.png', '/favicon.ico']);
+const smoothFreshCacheMarker = 'rsshub:smooth:fresh';
 
 const { h64ToString } = await xxhash();
+
+const getCachedValue = async (key: string, staleKey: string, smoothEnabled: boolean) => {
+    const value = await cacheModule.globalCache.get(key);
+    return smoothEnabled && value === smoothFreshCacheMarker ? await cacheModule.globalCache.get(staleKey) : value;
+};
+
 // only give cache string, as the `!` condition tricky
 // XXH64 is used to shrink key size
 // plz, write these tips in comments!
@@ -30,7 +37,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
     const smoothEnabled = shouldSmoothPath(requestPath);
     const forceSmoothRefresh = smoothEnabled && isSmoothRefreshRequest(ctx.req.header(smoothRefreshHeader));
 
-    let value = forceSmoothRefresh ? undefined : await cacheModule.globalCache.get(key);
+    let value = forceSmoothRefresh ? undefined : await getCachedValue(key, staleKey, smoothEnabled);
 
     if (smoothEnabled && !forceSmoothRefresh) {
         const isRefreshing = cacheModule.globalCache.supportsAtomicClaims && (await cacheModule.globalCache.get(controlKey)) === '1';
@@ -77,7 +84,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
         if (!bypass) {
             throw new RequestInProgressError('This path is currently fetching, please come back later!');
         }
-        value = forceSmoothRefresh ? undefined : await cacheModule.globalCache.get(key);
+        value = forceSmoothRefresh ? undefined : await getCachedValue(key, staleKey, smoothEnabled);
     }
 
     if (value) {
@@ -120,9 +127,11 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
             data.lastBuildDate = new Date().toUTCString();
             ctx.set('data', data);
             const body = JSON.stringify(data);
-            await cacheModule.globalCache.set(key, body, config.cache.routeExpire);
             if (smoothEnabled) {
                 await cacheModule.globalCache.set(staleKey, body, config.cache.smooth.staleExpire);
+                await cacheModule.globalCache.set(key, smoothFreshCacheMarker, config.cache.routeExpire);
+            } else {
+                await cacheModule.globalCache.set(key, body, config.cache.routeExpire);
             }
         }
     } finally {
