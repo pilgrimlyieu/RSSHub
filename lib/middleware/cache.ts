@@ -8,6 +8,7 @@ import cacheModule from '@/utils/cache/index';
 import { getSmoothDelaySeconds, isSmoothRefreshRequest, scheduleSmoothRefresh, shouldSmoothPath, smoothRefreshHeader } from '@/utils/cache/smooth';
 
 const bypassList = new Set(['/', '/robots.txt', '/logo.png', '/favicon.ico']);
+const smoothFreshCacheMarker = 'rsshub:smooth:fresh';
 // only give cache string, as the `!` condition tricky
 // XXH64 is used to shrink key size
 // plz, write these tips in comments!
@@ -63,8 +64,9 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
     }
 
     const value = forceSmoothRefresh ? undefined : await cacheModule.globalCache.get(key);
+    const cachedValue = smoothEnabled && value === smoothFreshCacheMarker ? await cacheModule.globalCache.get(staleKey) : value;
 
-    if (value) {
+    if (cachedValue) {
         if (smoothEnabled && !forceSmoothRefresh) {
             const delaySeconds = getSmoothDelaySeconds(cacheIdentity);
             await scheduleSmoothRefresh(cacheHash, ctx.req.url, delaySeconds);
@@ -73,7 +75,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
 
         ctx.status(200);
         ctx.header('RSSHub-Cache-Status', 'HIT');
-        ctx.set('data', JSON.parse(value));
+        ctx.set('data', JSON.parse(cachedValue));
         await next();
         return;
     }
@@ -117,9 +119,11 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
         data.lastBuildDate = new Date().toUTCString();
         ctx.set('data', data);
         const body = JSON.stringify(data);
-        await cacheModule.globalCache.set(key, body, config.cache.routeExpire);
         if (smoothEnabled) {
             await cacheModule.globalCache.set(staleKey, body, config.cache.smooth.staleExpire);
+            await cacheModule.globalCache.set(key, smoothFreshCacheMarker, config.cache.routeExpire);
+        } else {
+            await cacheModule.globalCache.set(key, body, config.cache.routeExpire);
         }
     }
 

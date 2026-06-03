@@ -1,5 +1,6 @@
 import Parser from 'rss-parser';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import xxhash from 'xxhash-wasm';
 
 import wait from '@/utils/wait';
 
@@ -179,6 +180,12 @@ describe('cache', () => {
             const parsedHit = await parser.parseString(await hitResponse.text());
             expect(hitResponse.headers.get('rsshub-cache-status')).toBe('HIT');
             expect(hitResponse.headers.get('rsshub-cache-smooth-refresh-after')).not.toBeNull();
+
+            const cacheModule = (await import('@/utils/cache/index')).default;
+            const { h64ToString } = await xxhash();
+            const cacheHash = h64ToString('/test/cache:rss');
+            expect(await cacheModule.globalCache.get(`rsshub:koa-redis-cache:${cacheHash}`)).toBe('rsshub:smooth:fresh');
+            expect(await cacheModule.globalCache.get(`rsshub:koa-redis-cache-stale:${cacheHash}`)).toContain('Cache1');
 
             await wait(1 * 1000 + 100);
 
