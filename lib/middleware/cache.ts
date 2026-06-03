@@ -5,6 +5,7 @@ import { config } from '@/config';
 import RequestInProgressError from '@/errors/types/request-in-progress';
 import type { Data } from '@/types';
 import cacheModule from '@/utils/cache/index';
+import { getSmoothDelaySeconds, isSmoothRefreshRequest, scheduleSmoothRefresh, shouldSmoothPath, smoothRefreshHeader } from '@/utils/cache/smooth';
 
 const bypassList = new Set(['/', '/robots.txt', '/logo.png', '/favicon.ico']);
 
@@ -21,10 +22,35 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
     const requestPath = ctx.req.path;
     const format = `:${ctx.req.query('format') || config.format}`;
     const limit = ctx.req.query('limit') ? `:${ctx.req.query('limit')}` : '';
-    const key = 'rsshub:koa-redis-cache:' + h64ToString(requestPath + format + limit);
-    const controlKey = 'rsshub:path-requested:' + h64ToString(requestPath + format + limit);
+    const cacheIdentity = requestPath + format + limit;
+    const cacheHash = h64ToString(cacheIdentity);
+    const key = 'rsshub:koa-redis-cache:' + cacheHash;
+    const staleKey = 'rsshub:koa-redis-cache-stale:' + cacheHash;
+    const controlKey = 'rsshub:path-requested:' + cacheHash;
+    const smoothEnabled = shouldSmoothPath(requestPath);
+    const forceSmoothRefresh = smoothEnabled && isSmoothRefreshRequest(ctx.req.header(smoothRefreshHeader));
 
-    let value = await cacheModule.globalCache.get(key);
+    let value = forceSmoothRefresh ? undefined : await cacheModule.globalCache.get(key);
+
+    if (smoothEnabled && !forceSmoothRefresh) {
+        const isRefreshing = cacheModule.globalCache.supportsAtomicClaims && (await cacheModule.globalCache.get(controlKey)) === '1';
+        if (!value || isRefreshing) {
+            const staleValue = await cacheModule.globalCache.get(staleKey);
+            if (staleValue) {
+                const delaySeconds = isRefreshing ? 0 : getSmoothDelaySeconds(cacheIdentity);
+                if (!isRefreshing) {
+                    await scheduleSmoothRefresh(cacheHash, ctx.req.url, delaySeconds);
+                }
+
+                ctx.status(200);
+                ctx.header('RSSHub-Cache-Status', 'STALE');
+                ctx.header('RSSHub-Cache-Smooth-Refresh-After', delaySeconds.toString());
+                ctx.set('data', JSON.parse(staleValue));
+                await next();
+                return;
+            }
+        }
+    }
 
     // Only atomic backends can coordinate fetchers. HTTP/KV may return stale
     // control keys after a completed request, while their feed cache stays useful.
@@ -51,10 +77,16 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
         if (!bypass) {
             throw new RequestInProgressError('This path is currently fetching, please come back later!');
         }
-        value = await cacheModule.globalCache.get(key);
+        value = forceSmoothRefresh ? undefined : await cacheModule.globalCache.get(key);
     }
 
     if (value) {
+        if (smoothEnabled && !forceSmoothRefresh) {
+            const delaySeconds = getSmoothDelaySeconds(cacheIdentity);
+            await scheduleSmoothRefresh(cacheHash, ctx.req.url, delaySeconds);
+            ctx.header('RSSHub-Cache-Smooth-Refresh-After', delaySeconds.toString());
+        }
+
         ctx.status(200);
         ctx.header('RSSHub-Cache-Status', 'HIT');
         ctx.set('data', JSON.parse(value));
@@ -76,6 +108,10 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
         ctx.set('cacheControlKey', controlKey);
     }
 
+    if (forceSmoothRefresh) {
+        ctx.header('RSSHub-Cache-Status', 'REFRESH');
+    }
+
     try {
         await next();
 
@@ -85,6 +121,9 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
             ctx.set('data', data);
             const body = JSON.stringify(data);
             await cacheModule.globalCache.set(key, body, config.cache.routeExpire);
+            if (smoothEnabled) {
+                await cacheModule.globalCache.set(staleKey, body, config.cache.smooth.staleExpire);
+            }
         }
     } finally {
         // Release after writing the feed, including failures after the route ran.
