@@ -167,6 +167,7 @@ describe('cache', () => {
         process.env.CACHE_SMOOTH_STALE_EXPIRE = '10';
         process.env.CACHE_SMOOTH_REFRESH_BASE_URL = 'http://127.0.0.1:9';
         process.env.CACHE_SMOOTH_REFRESH_TOKEN = 'test-token';
+        process.env.REQUEST_TIMEOUT = '100';
 
         try {
             const app = (await import('@/app')).default;
@@ -210,6 +211,7 @@ describe('cache', () => {
             delete process.env.CACHE_SMOOTH_STALE_EXPIRE;
             delete process.env.CACHE_SMOOTH_REFRESH_BASE_URL;
             delete process.env.CACHE_SMOOTH_REFRESH_TOKEN;
+            delete process.env.REQUEST_TIMEOUT;
             process.env.CACHE_CONTENT_EXPIRE = '2';
         }
     }, 10000);

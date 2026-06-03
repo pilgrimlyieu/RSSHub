@@ -8,6 +8,7 @@
 .agents
 .codex
 .jj
+.local
 .my-local-scripts
 app-minimal
 coverage
