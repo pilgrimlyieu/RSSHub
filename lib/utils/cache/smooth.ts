@@ -48,6 +48,10 @@ export const getSmoothDelaySeconds = (cacheIdentity: string, now = Date.now()) =
 
 const refreshSmoothCache = async (requestUrl: string, refreshKey: string) => {
     const refreshUrl = getRefreshUrl(requestUrl);
+    const safeLogPath = getSafeLogPath(refreshUrl);
+    const start = Date.now();
+
+    logger.info(`Smooth cache refresh started for ${safeLogPath}`);
 
     try {
         const response = await fetch(refreshUrl, {
@@ -59,11 +63,13 @@ const refreshSmoothCache = async (requestUrl: string, refreshKey: string) => {
 
         await response.arrayBuffer();
 
-        if (!response.ok) {
-            logger.warn(`Smooth cache refresh failed for ${getSafeLogPath(refreshUrl)}: HTTP ${response.status}`);
+        if (response.ok) {
+            logger.info(`Smooth cache refresh finished for ${safeLogPath}: HTTP ${response.status} ${Date.now() - start}ms`);
+        } else {
+            logger.warn(`Smooth cache refresh failed for ${safeLogPath}: HTTP ${response.status}`);
         }
     } catch (error) {
-        logger.warn(`Smooth cache refresh failed for ${getSafeLogPath(refreshUrl)}: ${error}`);
+        logger.warn(`Smooth cache refresh failed for ${safeLogPath}: ${error}`);
     } finally {
         await cacheModule.globalCache.set(refreshKey, '', 1);
     }
