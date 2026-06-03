@@ -24,6 +24,13 @@ type ConfigEnvKeys =
     | 'CACHE_REQUEST_TIMEOUT'
     | 'CACHE_EXPIRE'
     | 'CACHE_CONTENT_EXPIRE'
+    | 'CACHE_SMOOTH'
+    | 'CACHE_SMOOTH_PERIOD'
+    | 'CACHE_SMOOTH_STALE_EXPIRE'
+    | 'CACHE_SMOOTH_INCLUDE_PATHS'
+    | 'CACHE_SMOOTH_EXCLUDE_PATHS'
+    | 'CACHE_SMOOTH_REFRESH_BASE_URL'
+    | 'CACHE_SMOOTH_REFRESH_TOKEN'
     | 'MEMORY_MAX'
     | 'REDIS_URL'
     // Proxy
@@ -265,6 +272,14 @@ export type Config = {
         requestTimeout: number;
         routeExpire: number;
         contentExpire: number;
+        smooth: {
+            enabled: boolean;
+            period: number;
+            staleExpire: number;
+            includePathPrefixes: string[];
+            excludePathPrefixes: string[];
+            refreshBaseUrl?: string;
+        };
     };
     memory: {
         max: number;
@@ -686,6 +701,12 @@ const toBoolean = (value: string | undefined, defaultValue: boolean) => {
 
 const toInt = (value: string | undefined, defaultValue?: number) => (value === undefined ? defaultValue : Number.parseInt(value));
 
+const toList = (value: string | undefined) =>
+    value
+        ?.split(',')
+        .map((item) => item.trim())
+        .filter(Boolean) ?? [];
+
 const calculateValue = () => {
     const bilibili_cookies: Record<string, string | undefined> = {};
     const email_config: Record<string, string | undefined> = {};
@@ -737,6 +758,14 @@ const calculateValue = () => {
             requestTimeout: toInt(envs.CACHE_REQUEST_TIMEOUT, 60),
             routeExpire: toInt(envs.CACHE_EXPIRE, 5 * 60), // 路由缓存时间，单位为秒
             contentExpire: toInt(envs.CACHE_CONTENT_EXPIRE, 1 * 60 * 60), // 不变内容缓存时间，单位为秒
+            smooth: {
+                enabled: toBoolean(envs.CACHE_SMOOTH, false),
+                period: Math.max(toInt(envs.CACHE_SMOOTH_PERIOD, 30 * 60) || 1, 1),
+                staleExpire: Math.max(toInt(envs.CACHE_SMOOTH_STALE_EXPIRE, 24 * 60 * 60) || 1, 1),
+                includePathPrefixes: toList(envs.CACHE_SMOOTH_INCLUDE_PATHS),
+                excludePathPrefixes: toList(envs.CACHE_SMOOTH_EXCLUDE_PATHS),
+                refreshBaseUrl: envs.CACHE_SMOOTH_REFRESH_BASE_URL,
+            },
         },
         memory: {
             max: toInt(envs.MEMORY_MAX, Math.pow(2, 8)), // The maximum number of items that remain in the cache. This must be a positive finite intger.

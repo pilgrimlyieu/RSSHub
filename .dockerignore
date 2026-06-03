@@ -5,6 +5,10 @@
 .idea
 .idx
 .vscode
+.agents
+.codex
+.jj
+.my-local-scripts
 app-minimal
 coverage
 eslint-plugins
