@@ -52,6 +52,7 @@ interface VideoListData {
     list?: {
         vlist?: VideoItem[];
     };
+    v_voucher?: string;
 }
 
 interface VideoListResponse {
@@ -67,7 +68,19 @@ const allowedBrowserRequestTypes = new Set(['document', 'script', 'xhr', 'fetch'
 const browserResponseTimeout = 45000;
 const browserCloseTimeout = 90000;
 
+class BilibiliRiskControlError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'BilibiliRiskControlError';
+    }
+}
+
 const getErrorMessage = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
+
+const getApiErrorMessage = (code: number | undefined, message: string | undefined, mode = 'fetching', data?: VideoListData) =>
+    `Got error code ${code} while ${mode}: ${message}${data?.v_voucher ? ' (v_voucher present; captcha/risk verification required)' : ''}`;
+
+const hasRiskControlVoucher = (data: VideoListResponse) => data.code === -352 && !!data.data?.v_voucher;
 
 const isVideoListApiResponse = (response: BrowserResponse) => {
     const request = response.request();
@@ -165,7 +178,12 @@ async function fetchVideoListFromApi(uid: string): Promise<VideoListData> {
     const data = response.data;
     if (data.code) {
         logger.error(JSON.stringify(data.data));
-        throw new Error(`Got error code ${data.code} while fetching: ${data.message}`);
+        const message = getApiErrorMessage(data.code, data.message, 'fetching', data.data);
+        if (hasRiskControlVoucher(data)) {
+            throw new BilibiliRiskControlError(message);
+        }
+
+        throw new Error(message);
     }
 
     return data.data;
@@ -197,7 +215,7 @@ async function fetchVideoListFromBrowser(uid: string): Promise<VideoListData> {
         const data = (await response.json()) as VideoListResponse;
         if (data.code) {
             logger.error(JSON.stringify(data.data));
-            throw new Error(`Got error code ${data.code} while fetching in browser mode: ${data.message}`);
+            throw new Error(getApiErrorMessage(data.code, data.message, 'fetching in browser mode', data.data));
         }
 
         if (!data.data) {
@@ -214,6 +232,10 @@ async function getVideoList(uid: string): Promise<VideoListData> {
     try {
         return await fetchVideoListFromApi(uid);
     } catch (error) {
+        if (error instanceof BilibiliRiskControlError) {
+            throw error;
+        }
+
         logger.warn(`[bilibili/video] API request failed, falling back to browser mode: ${error}`);
         return fetchVideoListFromBrowser(uid);
     }

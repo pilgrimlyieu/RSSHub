@@ -1,3 +1,4 @@
+import { Hono } from 'hono';
 import Parser from 'rss-parser';
 import undici from 'undici';
 import { describe, expect, it, vi } from 'vitest';
@@ -107,4 +108,41 @@ describe('routes', () => {
             }
         );
     }
+});
+
+describe('Bilibili video risk control', () => {
+    it('reports a v_voucher challenge without falling back to browser mode', async () => {
+        vi.resetModules();
+        const getPlaywrightPage = vi.fn();
+        vi.doMock('@/routes/bilibili/cache', () => ({
+            default: {
+                getCookie: vi.fn().mockResolvedValue('cookie'),
+                getRenderData: vi.fn().mockResolvedValue('webid'),
+                getWbiVerifyString: vi.fn().mockResolvedValue('wbi-key'),
+            },
+        }));
+        vi.doMock('@/utils/got', () => ({
+            default: vi.fn().mockResolvedValue({
+                data: { code: -352, data: { v_voucher: 'test-voucher' }, message: '风控校验失败' },
+            }),
+        }));
+        vi.doMock('@/utils/playwright', () => ({ getPlaywrightPage }));
+
+        try {
+            const { route } = await import('@/routes/bilibili/video');
+            const testApp = new Hono();
+            testApp.get('/bilibili/user/video/:uid', async (ctx) => ctx.json(await route.handler(ctx)));
+            testApp.onError((error, ctx) => ctx.json({ message: error.message }, 500));
+
+            const response = await testApp.request('/bilibili/user/video/646730844');
+            expect(response.status).toBe(500);
+            expect(await response.json()).toMatchObject({ message: expect.stringContaining('v_voucher present; captcha/risk verification required') });
+            expect(getPlaywrightPage).not.toHaveBeenCalled();
+        } finally {
+            vi.doUnmock('@/routes/bilibili/cache');
+            vi.doUnmock('@/utils/got');
+            vi.doUnmock('@/utils/playwright');
+            vi.resetModules();
+        }
+    });
 });
