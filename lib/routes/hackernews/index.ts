@@ -1,9 +1,11 @@
 import { load } from 'cheerio';
+import pMap from 'p-map';
 
-import type { DataItem, Route } from '@/types';
+import type { Data, DataItem, Route } from '@/types';
 import { ViewType } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
+import ofetch from '@/utils/ofetch';
 import { parseDate } from '@/utils/parse-date';
 
 export const route: Route = {
@@ -55,10 +57,57 @@ type Story = Omit<DataItem, 'comments' | 'upvotes'> & {
     currentComment: string;
 };
 
+type ApiStory = {
+    id: number;
+    title: string;
+    by?: string;
+    time?: number;
+    url?: string;
+    text?: string;
+    descendants?: number;
+    score?: number;
+    deleted?: boolean;
+    dead?: boolean;
+};
+
+async function getBestStories(limit: number): Promise<Data> {
+    const rootUrl = 'https://news.ycombinator.com';
+    const apiUrl = 'https://hacker-news.firebaseio.com/v0';
+    const ids = await ofetch<number[]>(`${apiUrl}/beststories.json`);
+    const responses = await pMap(ids.slice(0, limit), (id) => cache.tryGet(`hackernews:api:item:${id}`, async () => ({ story: await ofetch<ApiStory | null>(`${apiUrl}/item/${id}.json`) })), { concurrency: 5 });
+
+    return {
+        title: 'Top Links | Hacker News',
+        link: `${rootUrl}/best`,
+        item: responses
+            .map(({ story }) => story)
+            .filter((story): story is ApiStory => Boolean(story && !story.deleted && !story.dead))
+            .map((story) => {
+                const discussionUrl = `${rootUrl}/item?id=${story.id}`;
+                return {
+                    guid: String(story.id),
+                    title: story.title,
+                    author: story.by,
+                    pubDate: story.time === undefined ? undefined : parseDate(story.time, 'X'),
+                    link: story.url || discussionUrl,
+                    description: `${story.text || ''}<p><a href="${discussionUrl}">Comments on Hacker News</a>${story.url ? ` | <a href="${story.url}">Source</a>` : ''}</p>`,
+                    category: story.url ? new URL(story.url).hostname.replace(/^www\./, '') : undefined,
+                    comments: story.descendants ?? 0,
+                    upvotes: story.score ?? 0,
+                };
+            }),
+    };
+}
+
 async function handler(ctx) {
     const section = ctx.req.param('section') ?? 'index';
     const type = ctx.req.param('type') ?? 'sources';
     const value = ctx.req.param('value') ?? '';
+
+    // Use the official API for best story feeds; the website can reject server-side requests with HTTP 419.
+    if (section === 'best' && type === 'sources' && !value) {
+        return getBestStories(ctx.req.query('limit') ? Number.parseInt(ctx.req.query('limit')) : 30);
+    }
 
     const rootUrl = 'https://news.ycombinator.com';
     const sectionUrl = section === 'index' ? '' : `/${section}`;

@@ -3,7 +3,10 @@ import { defineConfig } from 'tsdown';
 const namespaceOf = (id: string) => id.match(/[\\/]lib[\\/]routes[\\/]([^\\/]+)[\\/]/)?.[1];
 
 export default defineConfig({
-    entry: ['./lib/index.ts'],
+    entry: {
+        index: './lib/index.ts',
+        'mail-auth': './lib/cli/mail-auth.ts',
+    },
     minify: true,
     shims: true,
     clean: true,
