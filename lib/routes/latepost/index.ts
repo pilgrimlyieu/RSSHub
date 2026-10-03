@@ -2,9 +2,10 @@ import { load } from 'cheerio';
 
 import type { Data, Route } from '@/types';
 import cache from '@/utils/cache';
-import got from '@/utils/got';
 import { parseDate, parseRelativeDate } from '@/utils/parse-date';
 import timezone from '@/utils/timezone';
+
+import got from './client';
 
 /**
  * Convert an array into a dictionary object.
