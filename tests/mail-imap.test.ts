@@ -217,6 +217,43 @@ describe('IMAP mail route', () => {
 });
 
 describe('IMAP connection lifecycle', () => {
+    it('retries a transient OAuth authentication rejection with a new connection and the same token', async () => {
+        mocks.connect.mockRejectedValueOnce(Object.assign(new Error('test-only-token'), { authenticationFailed: true }));
+        mocks.connect.mockImplementationOnce(() => {
+            expect(mocks.close).toHaveBeenCalledExactlyOnceWith(mocks.clients[0]);
+            return Promise.resolve();
+        });
+        const action = vi.fn().mockResolvedValue('mailbox result');
+
+        await expect(withImapMailbox(oauthAccount, oauthAuth, 'INBOX', action)).resolves.toBe('mailbox result');
+
+        expect(mocks.clients).toHaveLength(2);
+        expect(mocks.options.map((options) => options.auth)).toEqual([oauthAuth, oauthAuth]);
+        expect(action).toHaveBeenCalledExactlyOnceWith(mocks.clients[1]);
+        expect(mocks.getMailboxLock).toHaveBeenCalledExactlyOnceWith('INBOX', { readOnly: true });
+        expect(mocks.logout).toHaveBeenCalledExactlyOnceWith(mocks.clients[1]);
+    });
+
+    it('does not retry password authentication failures', async () => {
+        const account = parseMailAccount(email, passwordConfig);
+        mocks.connect.mockRejectedValue(Object.assign(new Error('test-only-password'), { authenticationFailed: true }));
+
+        await expect(verifyImapAuth(account, { user: account.username, pass: 'test-only-password' })).rejects.toThrow('IMAP authentication failed.');
+
+        expect(mocks.clients).toHaveLength(1);
+        expect(mocks.close).toHaveBeenCalledOnce();
+    });
+
+    it('does not retry an authentication error after the connection has succeeded', async () => {
+        mocks.getMailboxLock.mockRejectedValue(Object.assign(new Error('test-only-token'), { authenticationFailed: true }));
+
+        await expect(verifyImapAuth(oauthAccount, oauthAuth)).rejects.toThrow('IMAP authentication failed.');
+
+        expect(mocks.clients).toHaveLength(1);
+        expect(mocks.logout).toHaveBeenCalledOnce();
+        expect(mocks.fetch).not.toHaveBeenCalled();
+    });
+
     it('verifies authorization with a read-only INBOX without fetching message contents', async () => {
         await expect(verifyImapAuth(oauthAccount, oauthAuth)).resolves.toEqual({ messages: 25 });
 
@@ -227,7 +264,7 @@ describe('IMAP connection lifecycle', () => {
         expect(mocks.logout).toHaveBeenCalledOnce();
     });
 
-    it('turns authentication failures into actionable errors without preserving upstream credentials', async () => {
+    it('stops after one OAuth retry and reports an actionable error without preserving credentials', async () => {
         mocks.connect.mockRejectedValue(Object.assign(new Error('test-only-token'), { authenticationFailed: true, responseText: 'test-only-token', oauthError: { token: 'test-only-token' } }));
 
         const result = verifyImapAuth(oauthAccount, oauthAuth);
@@ -235,7 +272,8 @@ describe('IMAP connection lifecycle', () => {
         await expect(result).rejects.toEqual(new Error('IMAP authentication failed. Check that you authorized the configured email account and enabled IMAP in the mailbox settings, then run mail-auth login again.'));
         await expect(result).rejects.not.toHaveProperty('cause');
         await expect(result).rejects.not.toHaveProperty('oauthError');
-        expect(mocks.close).toHaveBeenCalledOnce();
+        expect(mocks.close).toHaveBeenCalledTimes(2);
+        expect(mocks.clients).toHaveLength(2);
         expect(mocks.getMailboxLock).not.toHaveBeenCalled();
         expect(mocks.logout).not.toHaveBeenCalled();
     });

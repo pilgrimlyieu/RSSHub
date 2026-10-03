@@ -6,13 +6,15 @@ import type { ImapAuth, MailAccount } from './account';
 
 type ImapStage = 'connect' | 'mailbox' | 'connection';
 
+class ImapAuthenticationError extends Error {}
+
 const imapError = (account: MailAccount, stage: ImapStage, error: unknown): Error => {
     if (typeof error === 'object' && error !== null && 'authenticationFailed' in error && error.authenticationFailed) {
-        return new Error(
+        const message =
             account.auth === 'oauth2'
                 ? 'IMAP authentication failed. Check that you authorized the configured email account and enabled IMAP in the mailbox settings, then run mail-auth login again.'
-                : 'IMAP authentication failed. Check the configured username, password and IMAP access in the mailbox settings.'
-        );
+                : 'IMAP authentication failed. Check the configured username, password and IMAP access in the mailbox settings.';
+        return stage === 'connect' ? new ImapAuthenticationError(message) : new Error(message);
     }
 
     return new Error(
@@ -48,7 +50,7 @@ const cleanupImapMailbox = async (client: ImapFlow, connected: boolean, lock?: M
     }
 };
 
-export const withImapMailbox = async <T>(account: MailAccount, auth: ImapAuth, folder: string, action: (client: ImapFlow) => Promise<T>): Promise<T> => {
+const withImapMailboxAttempt = async <T>(account: MailAccount, auth: ImapAuth, folder: string, action: (client: ImapFlow) => Promise<T>): Promise<T> => {
     const client = new ImapFlow({
         host: account.host,
         port: account.port,
@@ -92,6 +94,19 @@ export const withImapMailbox = async <T>(account: MailAccount, auth: ImapAuth, f
         return result;
     } finally {
         await cleanupImapMailbox(client, connected, lock);
+    }
+};
+
+export const withImapMailbox = async <T>(account: MailAccount, auth: ImapAuth, folder: string, action: (client: ImapFlow) => Promise<T>): Promise<T> => {
+    try {
+        return await withImapMailboxAttempt(account, auth, folder, action);
+    } catch (error) {
+        if (account.auth !== 'oauth2' || !(error instanceof ImapAuthenticationError)) {
+            throw error;
+        }
+        // Outlook can intermittently reject a valid token. The failed connection is already closed,
+        // and no mailbox action has started, so one new connection can safely reuse the same token.
+        return withImapMailboxAttempt(account, auth, folder, action);
     }
 };
 
