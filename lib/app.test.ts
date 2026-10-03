@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import app from '@/app';
 import { config } from '@/config';
+import { route as hackernewsRoute } from '@/routes/hackernews/index';
 
 describe('index', () => {
     it('exports app entrypoint', () => {
@@ -29,6 +30,79 @@ describe('request-rewriter', () => {
 });
 
 const parser = new Parser();
+
+describe('Hacker News best stories', () => {
+    it('keeps unavailable and deleted stories out of the feed when details are cached', async () => {
+        const fetchSpy = vi.spyOn(undici, 'fetch').mockImplementation((input) => {
+            const url = String(input instanceof undici.Request ? input.url : input);
+            if (url.endsWith('/beststories.json')) {
+                return Promise.resolve(undici.Response.json([91101, 91102, 91103]));
+            }
+            if (url.endsWith('/91101.json')) {
+                return Promise.resolve(undici.Response.json(null));
+            }
+            if (url.endsWith('/91102.json')) {
+                return Promise.resolve(undici.Response.json({ id: 91102, deleted: true }));
+            }
+            return Promise.resolve(undici.Response.json({ id: 91103, title: 'A surviving story' }));
+        });
+        fetchSpy.mockClear();
+        const testApp = new Hono();
+        testApp.get('/hackernews/:section', async (ctx) => ctx.json(await hackernewsRoute.handler(ctx)));
+
+        try {
+            const first = await testApp.request('/hackernews/best?limit=3');
+            const second = await testApp.request('/hackernews/best?limit=3');
+            const firstData = await first.json();
+            const secondData = await second.json();
+            expect(firstData.item).toHaveLength(1);
+            expect(secondData.item).toEqual(firstData.item);
+            expect(secondData.item[0].pubDate).toBeUndefined();
+            expect(fetchSpy).toHaveBeenCalledTimes(5);
+        } finally {
+            fetchSpy.mockRestore();
+        }
+    });
+
+    it('uses the official API when the website rejects requests and preserves story order and links', async () => {
+        const requests: string[] = [];
+        const stories = {
+            91001: { id: 91001, type: 'story', title: 'An external story', url: 'https://example.com/article', by: 'alice', time: 1_790_812_800, descendants: 12, score: 120 },
+            91002: { id: 91002, type: 'story', title: 'Ask HN: A discussion', text: '<p>Discussion body</p>', by: 'bob', time: 1_790_812_900, descendants: 3, score: 30 },
+        };
+        const fetchSpy = vi.spyOn(undici, 'fetch').mockImplementation((input) => {
+            const url = String(input instanceof undici.Request ? input.url : input);
+            requests.push(url);
+            if (url === 'https://hacker-news.firebaseio.com/v0/beststories.json') {
+                return Promise.resolve(undici.Response.json([91001, 91002, 91003]));
+            }
+            const id = /\/item\/(\d+)\.json$/.exec(url)?.[1];
+            if (id && Object.hasOwn(stories, id)) {
+                return Promise.resolve(undici.Response.json(stories[id]));
+            }
+            return Promise.resolve(new undici.Response('Sorry', { status: 419 }));
+        });
+        const testApp = new Hono();
+        testApp.get('/hackernews/:section/:type?', async (ctx) => ctx.json(await hackernewsRoute.handler(ctx)));
+
+        try {
+            const response = await testApp.request('/hackernews/best?limit=2');
+            expect(response.status).toBe(200);
+            const data = await response.json();
+            expect(data.link).toBe('https://news.ycombinator.com/best');
+            expect(data.item).toMatchObject([
+                { guid: '91001', title: 'An external story', link: 'https://example.com/article', author: 'alice', comments: 12, upvotes: 120 },
+                { guid: '91002', title: 'Ask HN: A discussion', link: 'https://news.ycombinator.com/item?id=91002', author: 'bob' },
+            ]);
+            expect(data.item[0].pubDate).toBe(new Date(stories[91001].time * 1000).toISOString());
+            expect(data.item[1].description).toContain('<p>Discussion body</p>');
+            expect(requests).toHaveLength(3);
+            expect(requests.every((url) => url.startsWith('https://hacker-news.firebaseio.com/'))).toBe(true);
+        } finally {
+            fetchSpy.mockRestore();
+        }
+    });
+});
 
 process.env.ALLOW_USER_SUPPLY_UNSAFE_DOMAIN = 'true';
 
