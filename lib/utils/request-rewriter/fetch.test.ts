@@ -1,5 +1,5 @@
 import { getCurrentCell, setCurrentCell } from 'node-network-devtools';
-import undici, { ProxyAgent, Request } from 'undici';
+import undici, { Agent, ProxyAgent, Request } from 'undici';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import proxy from '@/utils/proxy';
@@ -98,6 +98,23 @@ describe('useCustomHeader', () => {
 });
 
 describe('wrappedFetch', () => {
+    test('preserves an explicit dispatcher instead of selecting a proxy', async () => {
+        const dispatcher = new Agent();
+        const fetchSpy = vi.spyOn(undici, 'fetch').mockResolvedValueOnce(new undici.Response('ok'));
+        const proxySpy = vi.spyOn(proxy, 'getCurrentProxy');
+
+        try {
+            await wrappedFetch('https://example.com', { dispatcher });
+
+            expect(fetchSpy.mock.calls[0][1]?.dispatcher).toBe(dispatcher);
+            expect(proxySpy).not.toHaveBeenCalled();
+        } finally {
+            fetchSpy.mockRestore();
+            proxySpy.mockRestore();
+            await dispatcher.close();
+        }
+    });
+
     test('throws when fetch fails without proxy retry', async () => {
         const fetchSpy = vi.spyOn(undici, 'fetch').mockRejectedValueOnce(new Error('boom'));
 
@@ -147,6 +164,23 @@ describe('request-rewriter fetch retry', () => {
         proxy.proxyObj.url_regex = originalUrlRegex;
         proxy.multiProxy = originalMultiProxy;
         proxy.proxyUrlHandler = originalProxyUrlHandler;
+    });
+
+    test('does not replace a failing explicit dispatcher with a proxy', async () => {
+        const proxies = buildProxyState();
+        applyProxyState(proxies);
+        const dispatcher = new Agent();
+        const proxySpy = vi.spyOn(proxy, 'getCurrentProxy').mockReturnValue(proxies[0]);
+        const fetchSpy = vi.spyOn(undici, 'fetch').mockRejectedValueOnce(new Error('certificate verification failed'));
+        fetchSpy.mockResolvedValueOnce(new undici.Response('unexpected fallback'));
+
+        try {
+            await expect(wrappedFetch('https://example.com', { dispatcher })).rejects.toThrow('certificate verification failed');
+            expect(fetchSpy).toHaveBeenCalledTimes(1);
+            expect(proxySpy).not.toHaveBeenCalled();
+        } finally {
+            await dispatcher.close();
+        }
     });
 
     test('retries with the next proxy when prefer-proxy header is set', async () => {

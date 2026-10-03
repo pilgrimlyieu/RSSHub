@@ -31,7 +31,7 @@ export const useCustomHeader = (headers: Iterable<[string, string]>) => {
 
 const wrappedFetch: typeof undici.fetch = async (input: RequestInfo, init?: RequestInit & { headerGeneratorOptions?: Partial<HeaderGeneratorOptions> }) => {
     const request = new Request(input, init);
-    const options: RequestInit = {};
+    const options: RequestInit = { dispatcher: init?.dispatcher };
 
     logger.debug(`Outgoing request: ${request.method} ${request.url}`);
 
@@ -101,7 +101,7 @@ const wrappedFetch: typeof undici.fetch = async (input: RequestInfo, init?: Requ
         try {
             return await undici.fetch(request, options);
         } catch (error) {
-            if (options.dispatcher && proxy.multiProxy && attempt < maxRetries - 1) {
+            if (!init?.dispatcher && options.dispatcher && proxy.multiProxy && attempt < maxRetries - 1) {
                 const currentProxy = proxy.getCurrentProxy();
                 if (currentProxy) {
                     logger.warn(`Request failed with proxy ${currentProxy.uri}, trying next proxy: ${error}`);
